@@ -16,6 +16,7 @@ const OXYGEN_OPTIONS = ["aerobic", "anaerobic", "reduced_oxygen"];
 const INOCULATION_OPTIONS = ["low_inoculum", "medium_inoculum", "high_inoculum"];
 const PRESERVATIVE_OPTIONS = ["none", "sodium_benzoate", "nisin", "potassium_sorbate", "cultured_dextrose"];
 const ACIDULANT_OPTIONS = ["none", "vinegar", "lactic_acid", "acetic_acid", "citric_acid"];
+const CURVE_MODE_OPTIONS = ["both", "ml", "kinetic"];
 
 export function ScenarioForm({ formData, onChange, onSubmit, loading }) {
   return (
@@ -131,6 +132,16 @@ export function ScenarioForm({ formData, onChange, onSubmit, loading }) {
         <label>
           Target Shelf Life Days
           <input name="target_shelf_life_days" type="number" value={formData.target_shelf_life_days} onChange={onChange} />
+        </label>
+        <label>
+          Curve Mode
+          <select name="curve_mode" value={formData.curve_mode} onChange={onChange}>
+            {CURVE_MODE_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <button className="primary-button" type="submit" disabled={loading}>

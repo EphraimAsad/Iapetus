@@ -1,0 +1,523 @@
+You are upgrading an existing full-stack SaaS MVP called Iapetus.
+
+Iapetus is a synthetic-first predictive food microbiology platform focused on shelf-life risk modelling and challenge-test style simulation for Listeria monocytogenes.
+
+The repo already exists, is runnable, is now in Git, and has been pushed to GitHub.
+Do not rebuild from scratch.
+Inspect the existing repo structure first, then extend it cleanly.
+
+Your job is to implement a serious v2 improvement pass with:
+1. scientific realism upgrades
+2. risk-driver interpretability
+3. local LLM summaries using Ollama with qwen3.5:4b
+4. CI via GitHub Actions
+5. documentation updates
+6. preservation of current working functionality
+
+Important:
+- Do not break the current MVP
+- Extend the current codebase modularly
+- Preserve the current endpoints where practical
+- Keep the system runnable locally
+- Assume synthetic training data remains the current dataset
+- Keep the architecture ready for later real-data replacement
+- Do not silently mix synthetic and future real data
+- Do not market or present outputs as regulatory proof
+
+==================================================
+PROJECT CONTEXT
+==================================================
+
+Project name:
+Iapetus
+
+Current product:
+Synthetic-first Shelf-Life Risk Engine
+
+Current capabilities already exist:
+- FastAPI backend
+- React frontend
+- CatBoost regressor and classifier
+- Monte Carlo engine
+- decision engine
+- summary output
+- sample full-report endpoint
+- saved model artifacts
+- Git repo and GitHub remote
+
+Primary organism:
+- Listeria monocytogenes
+
+Primary threshold:
+- 100 CFU/g
+
+Existing UI concept:
+User enters a food microbiology scenario and gets back:
+- growth curve
+- uncertainty band
+- decision
+- summary
+
+Your job:
+Upgrade Iapetus so it behaves more like a modern predictive microbiology platform and engineering-grade SaaS repo.
+
+==================================================
+HIGH-LEVEL GOALS
+==================================================
+
+Implement the following improvements:
+
+A. Add GitHub Actions CI
+B. Replace template summary generation with local Ollama integration using qwen3.5:4b
+C. Add local sensitivity / risk-driver analysis
+D. Add kinetic curve modelling for more realistic microbial growth shapes
+E. Add Ratkowsky temperature-response logic
+F. Add plateau / maximum population density behaviour
+G. Update API schemas, backend services, frontend UI, and docs accordingly
+
+==================================================
+PART A — CONTINUOUS INTEGRATION
+==================================================
+
+Set up GitHub Actions CI for this repo.
+
+Create:
+- .github/workflows/ci.yml
+
+CI requirements:
+1. Trigger on:
+   - push
+   - pull_request
+
+2. Run on Ubuntu latest
+
+3. Backend CI steps:
+   - set up Python
+   - install backend dependencies
+   - run dataset inspection if lightweight and safe
+   - run tests with pytest
+   - optionally run lint if already practical
+   - verify backend imports cleanly
+
+4. Frontend CI steps:
+   - set up Node
+   - install frontend dependencies
+   - run frontend build
+   - fail if build fails
+
+5. CI should be reliable and not excessively slow.
+If model retraining is too heavy for CI, do NOT retrain in CI.
+Instead:
+- test only inference-path viability
+- ensure saved artifacts or mock-safe paths are handled appropriately
+
+6. If the backend currently depends on trained model artifacts to run tests, make the tests robust:
+   - either use existing lightweight artifacts
+   - or add fixture logic
+   - or make tests mock model loading where appropriate
+
+7. Update README with a CI badge placeholder or CI section if practical.
+
+Goal:
+Every push should validate that backend tests pass and frontend builds successfully.
+
+==================================================
+PART B — LOCAL OLLAMA SUMMARY ENGINE
+==================================================
+
+Replace the current template/fallback-only summary behaviour with a real local LLM integration path using Ollama and qwen3.5:4b.
+
+Requirements:
+1. Use local Ollama model:
+   - qwen3.5:4b
+
+2. Implement a proper summary service that:
+   - calls local Ollama HTTP API
+   - sends structured prompt input
+   - uses model only for summary/explanation
+   - never lets the model invent scientific outputs
+   - falls back gracefully if Ollama is unavailable
+
+3. Add configuration options in backend config for:
+   - OLLAMA_BASE_URL
+   - OLLAMA_MODEL
+   - OLLAMA_TIMEOUT_SECONDS
+   - SUMMARY_PROVIDER
+   - enable/disable local LLM summary
+
+4. Default behaviour:
+   - if Ollama is available and enabled, use qwen3.5:4b
+   - if not, fall back to deterministic template summary
+   - do not crash the app if Ollama is unavailable
+
+5. Add a dedicated Ollama client module or integrate cleanly in summary service
+
+6. Summary engine input must be structured and tightly constrained.
+It must use:
+- product_category
+- pathogen
+- ph
+- aw
+- storage_temperature_c
+- initial_inoculum_log_cfu_g
+- target_shelf_life_days
+- predicted_final_log_cfu_g if available
+- threshold_exceedance_probability
+- growth_risk_class
+- recommended_max_shelf_life_days
+- challenge_test_recommended
+- primary_risk_drivers
+- uncertainty note if available
+- whether kinetic curve was used
+
+7. The prompt sent to qwen3.5:4b must be explicit:
+- do not invent values
+- do not state unprovided facts
+- do not claim validation
+- keep output concise
+- mention simulation-based nature
+- mention risk drivers
+- mention challenge-test recommendation if present
+
+8. Implement prompt builder logic in code, not inline string chaos.
+Create something like:
+- backend/app/services/summary_prompt_builder.py
+or equivalent clean structure
+
+9. Add tests for:
+- fallback summary still works
+- Ollama client failure does not crash request
+- prompt builder produces expected structured prompt sections
+
+10. Update full-report endpoint so summary generation uses the new service.
+
+==================================================
+PART C — SENSITIVITY / RISK-DRIVER ANALYSIS
+==================================================
+
+Add a local sensitivity analysis service to identify what most drives risk for a given scenario.
+
+Purpose:
+Food scientists want to know not just the output, but what caused it.
+
+Implement:
+- backend/app/services/sensitivity_service.py
+
+Approach:
+Use one-at-a-time local perturbation analysis around the user’s scenario.
+
+At minimum perturb numeric variables:
+- ph ± 0.1
+- aw ± 0.01
+- storage_temperature_c ± 1.0
+- initial_inoculum_log_cfu_g ± 0.25
+- salt_percent ± 0.2
+- sugar_percent ± 0.25
+- fat_percent ± 0.5
+
+If straightforward, also evaluate key categorical impacts:
+- preservative_flag
+- preservative_type
+- packaging_type
+- oxygen_condition
+
+For each perturbation:
+- rerun the relevant prediction pipeline
+- measure change in:
+  - final predicted log CFU/g
+  - threshold exceedance probability
+  - recommended max shelf life
+
+Return ranked drivers by absolute importance.
+
+Output structure should include:
+- baseline values
+- perturbation results
+- ranked driver list
+- directionality, such as:
+  - “increase raises risk”
+  - “increase lowers risk”
+
+Example output shape:
+{
+  "baseline": {...},
+  "drivers": [
+    {
+      "feature": "storage_temperature_c",
+      "impact_on_exceedance_probability": 0.124,
+      "impact_on_final_log_cfu_g": 0.35,
+      "impact_on_recommended_shelf_life_days": -7,
+      "direction": "increase raises risk"
+    }
+  ]
+}
+
+Add endpoint:
+- POST /predict/sensitivity
+
+Also include this output in:
+- POST /predict/full-report
+
+==================================================
+PART D — KINETIC GROWTH MODELLING
+==================================================
+
+The current system uses pointwise regression across time.
+Keep that path available, but add a biologically plausible kinetic curve mode.
+
+Add:
+- backend/app/utils/kinetics.py
+- backend/app/services/kinetic_service.py
+
+Goal:
+Generate kinetic growth curves with:
+- lag phase
+- growth phase
+- plateau phase
+
+Do not remove the existing ML curve.
+Instead support:
+- curve_mode = "ml"
+- curve_mode = "kinetic"
+
+Full-report should include kinetic curve output.
+If practical, include both:
+- ml_curve
+- kinetic_curve
+
+Implement a simplified modified Gompertz growth model.
+
+Expected functions:
+- gompertz_growth_curve(...)
+- estimate_mu_max(...)
+- estimate_lag_time(...)
+- estimate_nmax(...)
+
+Use:
+- N0 = initial_inoculum_log_cfu_g
+
+The kinetic model should produce realistic bounded curves, not endlessly increasing linear trends.
+
+Important:
+The kinetic model can be heuristic / rule-based for this MVP.
+It does not need to be a perfect scientific fit, but it must be biologically plausible and clearly better-shaped than the current pointwise curve.
+
+==================================================
+PART E — RATKOWSKY TEMPERATURE RESPONSE
+==================================================
+
+Add explicit temperature-response modelling for mu_max.
+
+Create:
+- backend/app/utils/temperature_models.py
+
+Implement Ratkowsky-style relationship:
+
+sqrt(mu_max) = b * (T - Tmin)
+
+Therefore:
+mu_max = (b * (T - Tmin))^2
+
+Requirements:
+- clamp mu_max to zero if T <= Tmin
+- allow configurable Tmin and b
+- integrate this into estimate_mu_max(...)
+- make low/chilled temperatures suppress growth strongly
+- make warmer abuse temperatures increase growth rate
+
+Keep implementation simple, explicit, and modular.
+
+Do not overcomplicate with multiple organism libraries at this stage.
+Focus on Listeria monocytogenes use case for MVP.
+
+==================================================
+PART F — PLATEAU / MAXIMUM POPULATION DENSITY
+==================================================
+
+Implement bounded growth through Nmax.
+
+Add biologically plausible Nmax estimation based on:
+- product_category
+- ph
+- aw
+- preservative_flag
+- oxygen_condition
+
+Rules may be heuristic but should be sensible.
+
+Expected behaviour:
+- base Nmax roughly in plausible log CFU/g ranges
+- harsher conditions reduce effective Nmax
+- kinetic curves flatten visibly
+- curves should not increase forever
+
+This logic belongs inside estimate_nmax(...) or associated helpers.
+
+==================================================
+PART G — BACKEND API CHANGES
+==================================================
+
+Update backend schemas and services cleanly.
+
+Add or update endpoints:
+- POST /predict/sensitivity
+- POST /predict/full-report
+
+Full-report response should now include:
+- existing curve output
+- kinetic_curve
+- sensitivity_analysis
+- primary_risk_drivers
+- updated summary
+- risk / decision outputs
+
+Add optional request parameter if practical:
+- curve_mode
+with values like:
+- "ml"
+- "kinetic"
+- "both"
+
+Keep backwards compatibility as much as practical.
+
+Update Pydantic schemas accordingly.
+
+==================================================
+PART H — FRONTEND UPDATES
+==================================================
+
+Update the existing React frontend to surface the new features cleanly.
+
+Requirements:
+1. Add a new section/card:
+   - Primary Risk Drivers
+   showing ranked drivers
+
+2. If practical, support:
+   - overlay of ML curve and kinetic curve
+   OR
+   - toggle between curve modes
+
+3. Update summary card to display:
+   - LLM-generated summary when available
+   - fallback summary otherwise
+
+4. Keep the UI clean and SaaS-like.
+Do not clutter the page.
+
+5. Make the new driver display readable.
+A ranked list is acceptable.
+A simple horizontal bar display is even better if easy.
+
+==================================================
+PART I — SUMMARY PROMPT QUALITY
+==================================================
+
+The prompt used for qwen3.5:4b must be detailed and restrictive.
+
+Build a robust prompt template with:
+1. system instruction
+2. structured data block
+3. explicit rules
+4. required response style
+
+System instruction should say things like:
+- You are summarizing structured predictive microbiology simulation outputs
+- Do not invent numbers
+- Do not invent biological claims not present in the input
+- Do not claim regulatory validation
+- Keep tone concise, professional, and plain-English
+- Mention the output is simulation-based
+- Mention primary drivers if present
+- Mention challenge test recommendation if present
+
+Desired summary output:
+- 2 to 5 sentences
+- concise but useful
+- plain-English
+- one short paragraph preferred
+- no bullet points
+- no markdown tables
+- no extra commentary
+
+Also include a short uncertainty note if driver or simulation uncertainty is meaningful.
+
+==================================================
+PART J — TESTING AND ROBUSTNESS
+==================================================
+
+Add or update tests for:
+- sensitivity service
+- kinetic service
+- temperature model helper
+- summary fallback
+- Ollama failure handling
+- full-report endpoint with new fields
+
+Keep tests lightweight enough for CI.
+
+Do not make CI depend on a running Ollama instance.
+For tests:
+- mock the Ollama call
+- or test fallback path separately
+
+==================================================
+PART K — DOCUMENTATION
+==================================================
+
+Update README.md to include:
+- new features
+- sensitivity analysis
+- kinetic curve mode
+- Ollama summary support
+- local Ollama setup steps
+- CI description
+- how fallback summary works
+- synthetic-data warning
+- note that this is not regulatory-grade validation
+
+Also document:
+- required environment variables
+- how to run with Ollama
+- how to disable Ollama and use fallback summary
+
+If there is a Codex.md or developer notes file, update that too.
+
+==================================================
+PART L — IMPLEMENTATION STYLE
+==================================================
+
+Requirements:
+- inspect the current repo first
+- integrate with current architecture rather than rewriting recklessly
+- keep code modular
+- avoid giant God files
+- preserve existing working behaviour
+- use clear function and file names
+- keep the design ready for later replacement with real challenge-test data
+- do not remove synthetic-data metadata fields
+- do not silently couple everything to Ollama availability
+
+==================================================
+PART M — DELIVERABLES
+==================================================
+
+Deliver:
+1. GitHub Actions CI workflow
+2. Ollama-backed summary service using qwen3.5:4b with fallback
+3. Sensitivity analysis service and API
+4. Kinetic curve generator
+5. Ratkowsky temperature-response helper
+6. Plateau / Nmax estimation
+7. Updated full-report output
+8. Updated frontend with drivers and curve comparison/toggle
+9. Updated tests
+10. Updated README/docs
+
+Before making major code changes:
+- inspect the repo
+- summarize the integration plan briefly in code comments or task notes if helpful
+- then implement directly
+
+Do not stop at partial scaffolding.
+Implement the features end-to-end in the existing repo.

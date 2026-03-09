@@ -23,6 +23,12 @@ export function DecisionCard({ decision }) {
           <span className="metric-label">Confidence</span>
           <strong>{decision.confidence_label}</strong>
         </div>
+        {decision.study_level_classifier_probability !== null && decision.study_level_classifier_probability !== undefined && (
+          <div>
+            <span className="metric-label">Study-Level Probability</span>
+            <strong>{(decision.study_level_classifier_probability * 100).toFixed(1)}%</strong>
+          </div>
+        )}
       </div>
       <p className="disclaimer">{decision.simulation_basis}</p>
     </div>

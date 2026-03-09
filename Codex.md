@@ -38,3 +38,23 @@
 
 - Recreated `.gitignore` with the full ignore set after confirming the file had become empty.
 - Included Python caches, frontend dependency/build directories, CatBoost training output, backend model artifacts, processed data, and generated report files.
+
+## 2026-03-09
+
+### Step 8
+
+- Upgraded the backend to v2 with configurable summary provider settings, Ollama client scaffolding, structured summary prompt building, and deterministic fallback summary behavior.
+- Added kinetic growth modelling, Ratkowsky temperature response helpers, plateau/Nmax estimation, sensitivity analysis, `curve_mode` support, and richer full-report plus `/predict/sensitivity` API outputs.
+
+### Step 9
+
+- Updated the React frontend for v2 with curve-mode selection, ML/kinetic overlay rendering, primary risk-driver display, and summary-provider visibility.
+
+### Step 10
+
+- Added GitHub Actions CI, expanded lightweight backend tests for v2 services and API shape, regenerated v2 sample outputs, and refreshed README documentation for Ollama, CI, and the new feature set.
+
+### Step 11
+
+- Tuned sensitivity-analysis runtime by lowering its internal Monte Carlo simulation count from the main risk-analysis default.
+- Re-ran the v2 backend test suite successfully and regenerated the final v2 sample full-report and sensitivity payloads.

@@ -4,6 +4,7 @@ import { fetchFullReport } from "./api";
 import { DecisionCard } from "./components/DecisionCard";
 import { GrowthCurveChart } from "./components/GrowthCurveChart";
 import { LoadingSpinner } from "./components/LoadingSpinner";
+import { RiskDriversCard } from "./components/RiskDriversCard";
 import { ScenarioForm } from "./components/ScenarioForm";
 import { SummaryCard } from "./components/SummaryCard";
 import "./styles/app.css";
@@ -26,6 +27,7 @@ const defaultForm = {
   inoculation_type: "low_inoculum",
   initial_inoculum_log_cfu_g: 1.06,
   target_shelf_life_days: 21,
+  curve_mode: "both",
 };
 
 const numberFields = new Set([
@@ -100,7 +102,13 @@ export default function App() {
             <>
               <GrowthCurveChart result={result} />
               <DecisionCard decision={result.decision} />
-              <SummaryCard summary={result.summary} uncertaintyDrivers={result.monte_carlo.uncertainty_drivers} />
+              <RiskDriversCard drivers={result.sensitivity_analysis.drivers} />
+              <SummaryCard
+                summary={result.summary}
+                uncertaintyDrivers={result.monte_carlo.uncertainty_drivers}
+                summaryProvider={result.summary_provider}
+                fallbackUsed={result.summary_fallback_used}
+              />
             </>
           )}
           {!loading && !result && (

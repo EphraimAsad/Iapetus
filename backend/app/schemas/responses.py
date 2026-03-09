@@ -6,6 +6,10 @@ from pydantic import BaseModel
 class CurveResponse(BaseModel):
     days: list[int]
     predicted_log_cfu_g: list[float]
+    model_name: str | None = None
+    mu_max: float | None = None
+    lag_time_days: float | None = None
+    nmax_log_cfu_g: float | None = None
 
 
 class MonteCarloResponse(BaseModel):
@@ -31,12 +35,34 @@ class DecisionResponse(BaseModel):
 
 class SummaryResponse(BaseModel):
     summary: str
+    summary_provider: str
+    fallback_used: bool
+
+
+class SensitivityDriverResponse(BaseModel):
+    feature: str
+    variant_value: str | float | bool
+    impact_on_exceedance_probability: float
+    impact_on_final_log_cfu_g: float
+    impact_on_recommended_shelf_life_days: int
+    direction: str
+
+
+class SensitivityResponse(BaseModel):
+    baseline: dict[str, Any]
+    drivers: list[SensitivityDriverResponse]
 
 
 class FullReportResponse(BaseModel):
     scenario: dict[str, Any]
     curve: CurveResponse
+    ml_curve: CurveResponse | None = None
+    kinetic_curve: CurveResponse | None = None
     monte_carlo: MonteCarloResponse
     decision: DecisionResponse
     summary: str
+    summary_provider: str
+    summary_fallback_used: bool
+    sensitivity_analysis: SensitivityResponse
+    primary_risk_drivers: list[str]
     metadata: dict[str, Any]

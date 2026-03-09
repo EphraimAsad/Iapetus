@@ -1,6 +1,6 @@
 # Iapetus
 
-Iapetus is a synthetic-first predictive food microbiology MVP for shelf-life risk modelling and challenge-test style simulation focused on *Listeria monocytogenes*. It predicts a growth curve, quantifies uncertainty, estimates threshold exceedance risk, recommends a maximum shelf life, and generates a concise simulation-based summary.
+Iapetus is a synthetic-first predictive food microbiology MVP for shelf-life risk modelling and challenge-test style simulation focused on *Listeria monocytogenes*. In v2 it predicts ML and kinetic growth curves, quantifies uncertainty, estimates threshold exceedance risk, ranks local risk drivers, and generates a concise simulation-based summary through either local Ollama or a deterministic fallback.
 
 ## Synthetic-First Warning
 
@@ -13,14 +13,27 @@ This MVP is trained on a synthetic dataset and is intended for exploratory simul
 - 2026-03-08: Generated the dataset inspection report, trained both CatBoost models, saved artifacts, produced a sample full-report payload, and verified the frontend production build.
 - 2026-03-08: Updated `.gitignore` to cover CatBoost training output and Vite temporary cache directories.
 - 2026-03-08: Rebuilt `.gitignore` with the full intended ruleset, including explicit frontend build/dependency directories and backend/report artifact ignores.
+- 2026-03-09: Completed the v2 backend upgrade with Ollama-ready summaries, kinetic curve modelling, sensitivity analysis, richer API responses, and `curve_mode` support.
+- 2026-03-09: Completed the v2 frontend, CI workflow, expanded automated tests, and refreshed sample outputs/documentation.
+- 2026-03-09: Tuned v2 sensitivity-analysis runtime and revalidated the backend test suite with refreshed final sample payloads.
+
+## New In V2
+
+- GitHub Actions CI for backend tests and frontend builds
+- Local sensitivity analysis and ranked primary risk drivers
+- Heuristic kinetic growth curves with lag, growth, and plateau behavior
+- Ratkowsky-style temperature response for kinetic growth rate
+- Local Ollama summaries using `qwen3.5:4b` with deterministic fallback
+- `curve_mode` support for ML, kinetic, or both curves
 
 ## What The MVP Does
 
 - Accepts a food microbiology scenario for *Listeria monocytogenes*.
-- Predicts a time-series growth curve in log CFU/g.
+- Predicts a time-series ML growth curve and a bounded kinetic curve in log CFU/g.
 - Runs Monte Carlo simulation to estimate p10/p50/p90 bands and threshold exceedance probabilities.
 - Classifies risk, recommends a conservative maximum shelf life, and flags whether challenge testing is recommended.
-- Returns a deterministic plain-English summary designed to be replaceable later with a local LLM integration.
+- Ranks local risk drivers through one-at-a-time perturbation analysis.
+- Returns either an Ollama-generated summary or a deterministic fallback summary.
 
 ## Repository Layout
 
@@ -30,6 +43,7 @@ frontend/  Vite + React MVP UI with Recharts
 data/raw/  Canonical synthetic v1 CSV
 reports/   Dataset inspection report and generated sample payloads
 scripts/   Convenience run scripts
+.github/   GitHub Actions CI workflow
 ```
 
 ## Setup
@@ -46,6 +60,23 @@ python -m pip install -r backend/requirements.txt
 cd frontend
 npm install
 ```
+
+## Environment Variables
+
+Backend v2 supports:
+
+```bash
+SUMMARY_PROVIDER=ollama
+OLLAMA_ENABLED=true
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3.5:4b
+OLLAMA_TIMEOUT_SECONDS=8
+RATKOWSKY_B=0.02
+RATKOWSKY_TMIN_C=-1.5
+IAPETUS_CURVE_MODE=both
+```
+
+If `OLLAMA_ENABLED=false` or Ollama is unavailable, summaries automatically fall back to the deterministic template path.
 
 ## Train Models
 
@@ -86,6 +117,27 @@ Health check:
 curl http://localhost:8000/health
 ```
 
+## Run With Ollama
+
+1. Install and run Ollama locally.
+2. Pull the configured model:
+
+```bash
+ollama pull qwen3.5:4b
+```
+
+3. Start the backend with Ollama enabled:
+
+```bash
+SUMMARY_PROVIDER=ollama OLLAMA_ENABLED=true PYTHONPATH=backend uvicorn app.main:app --app-dir backend --reload
+```
+
+To force deterministic fallback:
+
+```bash
+SUMMARY_PROVIDER=ollama OLLAMA_ENABLED=false PYTHONPATH=backend uvicorn app.main:app --app-dir backend --reload
+```
+
 ## Run The Frontend
 
 ```bash
@@ -107,6 +159,7 @@ By default the frontend targets `http://localhost:8000`. Override with `VITE_API
 - `POST /predict/monte-carlo`
 - `POST /predict/decision`
 - `POST /predict/summary`
+- `POST /predict/sensitivity`
 - `POST /predict/full-report`
 
 ## Example Scenario JSON
@@ -131,7 +184,8 @@ The generated sample input is saved at [`reports/sample_scenario.json`](/C:/Iape
   "storage_temperature_c": 4,
   "inoculation_type": "low_inoculum",
   "initial_inoculum_log_cfu_g": 1.06,
-  "target_shelf_life_days": 21
+  "target_shelf_life_days": 21,
+  "curve_mode": "both"
 }
 ```
 
@@ -141,6 +195,9 @@ The generated sample response is saved at [`reports/sample_full_report.json`](/C
 
 ```json
 {
+  "kinetic_curve": {
+    "model_name": "modified_gompertz"
+  },
   "decision": {
     "growth_risk_class": "moderate",
     "threshold_exceedance_probability": 0.054,
@@ -149,9 +206,16 @@ The generated sample response is saved at [`reports/sample_full_report.json`](/C
     "confidence_label": "medium",
     "threshold_cfu_g": 100
   },
-  "summary": "For this deli_salad scenario stored at 4.0C, the simulation indicates a moderate risk profile with an estimated 5.4% probability of exceeding 100 CFU/g by day 21. The suggested maximum shelf life is 14 days. Challenge testing is not currently recommended, and the output remains simulation-based with material uncertainty."
+  "primary_risk_drivers": ["storage_temperature_c", "aw", "ph"],
+  "summary_provider": "fallback",
+  "summary": "For this deli_salad scenario stored at 4.0C, the simulation indicates a moderate risk profile with an estimated 5.4% probability of exceeding 100 CFU/g by day 21. The suggested maximum shelf life is 14 days. Challenge testing is not currently recommended. This is a simulation-based output, with primary risk drivers including storage_temperature_c, aw, ph; storage_temperature_c, fat_percent, initial_inoculum_log_cfu_g."
 }
 ```
+
+Additional generated payloads:
+
+- [`reports/sample_full_report.json`](/C:/Iapetus/reports/sample_full_report.json)
+- [`reports/sample_sensitivity.json`](/C:/Iapetus/reports/sample_sensitivity.json)
 
 ## Example Request
 
@@ -161,9 +225,24 @@ curl -X POST http://localhost:8000/predict/full-report \
   -d @reports/sample_scenario.json
 ```
 
+## CI
+
+The repo includes GitHub Actions CI at [`.github/workflows/ci.yml`](/C:/Iapetus/.github/workflows/ci.yml).
+
+CI behavior:
+
+- installs backend dependencies
+- verifies backend imports
+- runs dataset inspection
+- runs backend pytest
+- installs frontend dependencies with `npm ci`
+- runs the frontend production build
+
+CI does not retrain models and does not require a running Ollama instance.
+
 ## Real-Data Readiness
 
 - Stable request schema retained even though the current dataset is single-organism and synthetic.
 - Feature selection, validation, and artifact metadata are centralized in backend services.
 - Dataset metadata tracks synthetic/source provenance and version.
-- Summary generation includes an integration hook for future local Ollama/Qwen support.
+- Summary generation supports optional local Ollama while remaining safe under fallback mode.

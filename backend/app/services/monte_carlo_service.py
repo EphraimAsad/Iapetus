@@ -5,6 +5,7 @@ import numpy as np
 from app.core.config import get_settings
 from app.services.curve_service import build_day_grid
 from app.services.feature_builder import scenario_to_regression_rows
+from app.services.kinetic_service import generate_kinetic_curve
 from app.services.model_registry import load_model_bundle
 from app.utils.validation import clamp
 
@@ -19,11 +20,13 @@ PERTURBATION_BOUNDS = {
 }
 
 
-def run_monte_carlo(scenario: dict[str, Any], simulations: int | None = None) -> dict[str, Any]:
+def run_monte_carlo(scenario: dict[str, Any], simulations: int | None = None, curve_mode: str = "ml") -> dict[str, Any]:
     settings = get_settings()
     total = simulations or settings.default_simulations
     rng = np.random.default_rng(settings.monte_carlo_seed)
-    model, _ = load_model_bundle("regressor")
+    model = None
+    if curve_mode != "kinetic":
+        model, _ = load_model_bundle("regressor")
     days = build_day_grid(int(scenario["target_shelf_life_days"]))
 
     curves = []
@@ -31,8 +34,11 @@ def run_monte_carlo(scenario: dict[str, Any], simulations: int | None = None) ->
     for _ in range(total):
         sampled = sample_scenario(scenario, rng)
         sampled_inputs.append(sampled)
-        frame = scenario_to_regression_rows(sampled, days)
-        curves.append(model.predict(frame))
+        if curve_mode == "kinetic":
+            curves.append(generate_kinetic_curve(sampled)["predicted_log_cfu_g"])
+        else:
+            frame = scenario_to_regression_rows(sampled, days)
+            curves.append(model.predict(frame))
 
     curve_array = np.asarray(curves, dtype=float)
     probabilities = (curve_array >= settings.threshold_log_cfu_g).mean(axis=0)
@@ -44,6 +50,7 @@ def run_monte_carlo(scenario: dict[str, Any], simulations: int | None = None) ->
         "threshold_exceedance_probability_by_day": _round(probabilities),
         "uncertainty_drivers": summarize_uncertainty_drivers(sampled_inputs),
         "simulations": total,
+        "curve_mode": curve_mode,
     }
 
 

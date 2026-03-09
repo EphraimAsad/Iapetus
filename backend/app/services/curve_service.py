@@ -4,6 +4,7 @@ import numpy as np
 
 from app.core.config import get_settings
 from app.services.feature_builder import scenario_to_regression_rows
+from app.services.kinetic_service import generate_kinetic_curve
 from app.services.model_registry import load_model_bundle
 
 
@@ -27,6 +28,13 @@ def generate_growth_curve(scenario: dict[str, Any]) -> dict[str, list[float] | l
         "days": days,
         "predicted_log_cfu_g": [round(float(value), 4) for value in predictions],
     }
+
+
+def generate_curve_by_mode(scenario: dict[str, Any], curve_mode: str | None = None) -> dict[str, Any]:
+    mode = curve_mode or scenario.get("curve_mode") or get_settings().kinetic_curve_default_mode
+    if mode == "kinetic":
+        return generate_kinetic_curve(scenario)
+    return generate_growth_curve(scenario)
 
 
 def _smooth_predictions(predictions) -> np.ndarray:

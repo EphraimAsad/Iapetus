@@ -23,6 +23,7 @@ class ScenarioRequest(BaseModel):
     test_purpose: str = Field(default="shelf_life_validation")
     strain_info: str = Field(default="2-strain cocktail")
     temperature_profile_type: str = Field(default="constant")
+    curve_mode: str = Field(default="both")
 
     @field_validator("preservative_type")
     @classmethod
