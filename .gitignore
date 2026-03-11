@@ -23,6 +23,10 @@ backend/artifacts/*.joblib
 backend/artifacts/*.json
 !backend/artifacts/.gitkeep
 
+Codex.md
+MasterPrompt.txt
+MasterPromptv2.txt
+
 data/processed/*
 !data/processed/.gitkeep
 
