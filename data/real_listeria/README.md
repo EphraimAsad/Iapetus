@@ -93,4 +93,6 @@ Never split individual timepoints randomly. All observations belonging to a `cur
 
 The first reproducible benchmark is based on Hiura, Koseki & Koyama (2021), DOI `10.1038/s41598-021-90164-z`, which reports 2,531 ComBase Listeria record IDs, 27,059 viable-count observations and 1,007 grouped environmental conditions.
 
+The two publisher supplementary index files have now been acquired and verified separately from the model data: S1 contains exactly 2,531 unique ComBase Record IDs and S2 contains exactly 112 unique food/medium names. Their checksums and row counts are recorded in `metadata/hiura_2021_supplement_manifest.json`. S2 is a vocabulary, not a Record-ID-to-food mapping; reconstruction of the actual curves still requires the corresponding ComBase Browser exports containing record metadata and time/count observations.
+
 Additional cohorts should be tracked in `metadata/source_manifest.csv` and added only after deduplication against the benchmark cohort.
